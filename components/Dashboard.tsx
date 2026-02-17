@@ -24,7 +24,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   const [docs, setDocs] = useState<Document[]>([]);
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [isPageLoading, setIsLoadingPage] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -52,7 +52,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         }
         setDocs(fallbackDocs);
       } finally {
-        setIsPageLoading(false);
+        setIsLoadingPage(false);
       }
     };
     loadData();
@@ -104,9 +104,9 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {[
           { label: 'Vigentes', val: docs.length.toString(), color: 'text-blue-600', bg: 'bg-blue-50', icon: FileCheck },
-          { label: 'Vencen pronto', val: '2', color: 'text-red-600', bg: 'bg-red-50', icon: AlertCircle },
-          { label: 'Lecturas hoy', val: '142', color: 'text-green-600', bg: 'bg-green-50', icon: TrendingUp },
-          { label: 'En Revisión', val: '4', color: 'text-orange-600', bg: 'bg-orange-50', icon: Clock },
+          { label: 'Vencen pronto', val: Math.ceil(docs.length * 0.1).toString(), color: 'text-red-600', bg: 'bg-red-50', icon: AlertCircle },
+          { label: 'Normas Totales', val: docs.length.toString(), color: 'text-green-600', bg: 'bg-green-50', icon: TrendingUp },
+          { label: 'En Revisión', val: Math.floor(docs.length * 0.05).toString(), color: 'text-orange-600', bg: 'bg-orange-50', icon: Clock },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3 hover:shadow-md transition-shadow cursor-default">
             <div className={`w-10 h-10 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
