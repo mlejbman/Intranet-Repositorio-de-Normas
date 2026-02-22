@@ -61,3 +61,10 @@ export const MOCK_DOCS = [
 // Claves para localStorage en modo demo
 export const DEMO_USERS_KEY = 'retail_hub_demo_users';
 export const DEMO_DOCS_KEY = 'retail_hub_demo_docs';
+export const DEMO_AREAS_KEY = 'retail_hub_demo_areas';
+
+export const MOCK_AREAS = Object.values(DocArea).map((name, index) => ({
+  id: `area-${index}`,
+  name,
+  description: `Departamento de ${name}`
+}));

@@ -4,9 +4,10 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import AdminPanel from './components/AdminPanel';
 import RepositoryView from './components/RepositoryView';
-import { UserRole, User as UserType, DocArea } from './types';
+import MetricsView from './components/MetricsView';
+import { UserRole, User as UserType, DocArea, Area } from './types';
 import { supabaseService } from './services/supabase.ts';
-import { MOCK_USERS } from './constants';
+import { MOCK_USERS, MOCK_AREAS } from './constants';
 import { 
   Menu, 
   Loader2, 
@@ -22,6 +23,7 @@ import {
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [activeView, setActiveView] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -30,10 +32,33 @@ const App: React.FC = () => {
   const initApp = async () => {
     setIsInitializing(true);
     try {
-      const users = await supabaseService.getUsers();
+      const isConnected = await supabaseService.testConnection();
+      console.log("[App] Supabase connection status:", isConnected ? "Connected" : "Not Configured/Error");
+
+      const [users, fetchedAreas] = await Promise.all([
+        supabaseService.getUsers(),
+        supabaseService.getAreas()
+      ]);
+      
       const finalUsers = (users && users.length > 0) ? users : MOCK_USERS;
       setAllUsers(finalUsers);
       setIsDemoMode(!(users && users.length > 0));
+
+      const sortAreas = (areasList: any[]) => {
+        return [...areasList].sort((a, b) => {
+          if (a.name === 'General') return -1;
+          if (b.name === 'General') return 1;
+          return a.name.localeCompare(b.name);
+        });
+      };
+
+      if (!(users && users.length > 0)) {
+        const storedAreas = localStorage.getItem('retail_hub_demo_areas');
+        const initialAreas = storedAreas ? JSON.parse(storedAreas) : (fetchedAreas && fetchedAreas.length > 0) ? fetchedAreas : MOCK_AREAS;
+        setAreas(sortAreas(initialAreas));
+      } else {
+        setAreas(sortAreas(fetchedAreas && fetchedAreas.length > 0 ? fetchedAreas : MOCK_AREAS));
+      }
 
       const savedUserId = localStorage.getItem('retail_hub_user_id');
       if (savedUserId) {
@@ -41,7 +66,7 @@ const App: React.FC = () => {
         if (found) setCurrentUser(found);
       }
     } catch (err: any) {
-      console.warn("Error crítico en initApp, activando Modo Demo forzado:", err.message);
+      console.warn("Error crítico en initApp, activando Modo Demo forzado:", err?.message || "Error desconocido");
       setAllUsers(MOCK_USERS);
       setIsDemoMode(true);
     } finally {
@@ -74,6 +99,18 @@ const App: React.FC = () => {
           </div>
         </div>
         <p className="mt-8 text-gray-400 font-black uppercase tracking-[0.3em] text-[10px]">Verificando Credenciales...</p>
+        
+        <button 
+          onClick={() => {
+            setAllUsers(MOCK_USERS);
+            setAreas(MOCK_AREAS);
+            setIsDemoMode(true);
+            setIsInitializing(false);
+          }}
+          className="mt-12 px-6 py-3 bg-white border border-gray-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm"
+        >
+          Omitir y usar Modo Demo
+        </button>
       </div>
     );
   }
@@ -184,8 +221,11 @@ const App: React.FC = () => {
     if (activeView === 'favorites') return <RepositoryView showOnlyFavorites={true} currentUser={currentUser} />;
     
     if (activeView.startsWith('admin-')) {
-      const tab = activeView === 'admin-users' ? 'users' : 'docs';
-      return <AdminPanel role={currentUser.role} activeTab={tab as 'docs' | 'users'} />;
+      if (activeView === 'admin-metrics') return <MetricsView />;
+      let tab: 'docs' | 'users' | 'areas' = 'docs';
+      if (activeView === 'admin-users') tab = 'users';
+      if (activeView === 'admin-areas') tab = 'areas';
+      return <AdminPanel role={currentUser.role} activeTab={tab} onAreasChange={setAreas} />;
     }
 
     if (activeView.startsWith('area-')) {
@@ -205,6 +245,7 @@ const App: React.FC = () => {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
+        areas={areas}
       />
 
       <div className="flex-1 flex flex-col min-w-0">

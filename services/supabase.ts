@@ -1,11 +1,39 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
-import { Document, UserRole, DocArea, User } from '../types';
+import { createClient } from '@supabase/supabase-js';
+import { Document, UserRole, DocArea, User, Area } from '../types';
 
-const supabaseUrl = 'https://erisopvgumqjknhkjkbw.supabase.co'; 
-const supabaseAnonKey = 'sb_publishable_HmNPseYKKfH1OnKkTM57HA_Rr3wtWmi';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://erisopvgumqjknhkjkbw.supabase.co'; 
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyaXNvcHZndW1xamtuaGtqa2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1MzQ3MjYsImV4cCI6MjA4NjExMDcyNn0._YalZtQL15DV9501o9P1i5tBu-j0Fpm9AA5abshpVCg';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const isConfigured = () => {
+  const isPlaceholder = supabaseAnonKey.startsWith('your_');
+  return !!supabaseUrl && !!supabaseAnonKey && !isPlaceholder;
+};
+
+let _supabase: any = null;
+const getSupabase = () => {
+  if (!_supabase) {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('[Supabase] Missing URL or Anon Key');
+      throw new Error('SUPABASE_NOT_CONFIGURED');
+    }
+    try {
+      _supabase = createClient(supabaseUrl, supabaseAnonKey);
+    } catch (err) {
+      console.error('[Supabase] Initialization error:', err);
+      throw err;
+    }
+  }
+  return _supabase;
+};
+
+// Helper to wrap promises with a timeout
+async function withTimeout(promise: any, timeoutMs: number = 5000): Promise<any> {
+  const timeoutPromise = new Promise<never>((_, reject) => 
+    setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)
+  );
+  return Promise.race([promise, timeoutPromise]);
+}
 
 const mapDoc = (dbDoc: any): Document => ({
   id: dbDoc.id,
@@ -33,28 +61,40 @@ const mapUser = (dbUser: any): User => ({
 
 export const supabaseService = {
   async testConnection(): Promise<boolean> {
-    const { error } = await supabase.from('profiles').select('id').limit(1);
-    if (error) {
-      if (error.message.includes('schema cache') || error.message.includes('not found')) {
-        throw new Error('TABLES_MISSING');
+    if (!isConfigured()) return false;
+    try {
+      const { error } = await withTimeout(getSupabase().from('profiles').select('id').limit(1));
+      if (error) {
+        if (error.message.includes('schema cache') || error.message.includes('not found')) {
+          throw new Error('TABLES_MISSING');
+        }
+        throw error;
       }
-      throw error;
+      return true;
+    } catch (err) {
+      console.error('[Supabase] Connection test failed:', err);
+      return false;
     }
-    return true;
   },
 
   async getDocuments(): Promise<Document[]> {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .order('updated_at', { ascending: false });
-    
-    if (error) throw error;
-    return (data || []).map(mapDoc);
+    if (!isConfigured()) return [];
+    try {
+      const { data, error } = await withTimeout(getSupabase()
+        .from('documents')
+        .select('*')
+        .order('updated_at', { ascending: false }));
+      
+      if (error) throw error;
+      return (data || []).map(mapDoc);
+    } catch (err) {
+      console.error('[Supabase] Error fetching documents:', err);
+      return []; // Return empty array on error to allow demo mode fallback
+    }
   },
 
   async createDocument(doc: any): Promise<Document> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('documents')
       .insert([doc])
       .select()
@@ -65,7 +105,7 @@ export const supabaseService = {
   },
 
   async updateDocument(id: string, updates: any): Promise<Document> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('documents')
       .update(updates)
       .eq('id', id)
@@ -77,7 +117,7 @@ export const supabaseService = {
   },
 
   async deleteDocument(id: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from('documents')
       .delete()
       .eq('id', id);
@@ -86,7 +126,7 @@ export const supabaseService = {
   },
 
   async getProfileByEmail(email: string): Promise<User | null> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('profiles')
       .select('*')
       .eq('email', email)
@@ -97,59 +137,122 @@ export const supabaseService = {
   },
 
   async getUsers(): Promise<User[]> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('name', { ascending: true });
-    
-    if (error) throw error;
-    return (data || []).map(mapUser);
+    if (!isConfigured()) return [];
+    try {
+      const { data, error } = await withTimeout(getSupabase()
+        .from('profiles')
+        .select('*')
+        .order('name', { ascending: true }));
+      
+      if (error) throw error;
+      return (data || []).map(mapUser);
+    } catch (err) {
+      console.error('[Supabase] Error fetching users:', err);
+      return []; // Return empty array on error to allow demo mode fallback
+    }
   },
 
   async createProfile(user: any): Promise<User> {
-    console.log('[SupabaseService] Creating profile with payload:', user);
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('profiles')
       .insert([user])
       .select()
       .single();
     
-    if (error) {
-      console.error('[SupabaseService] Error creating profile:', error);
-      throw error;
-    }
-    console.log('[SupabaseService] Profile created successfully:', data);
+    if (error) throw error;
     return mapUser(data);
   },
 
   async updateProfile(id: string, updates: any): Promise<User> {
-    console.log(`[SupabaseService] Updating profile ID: ${id} with updates:`, updates);
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('profiles')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
     
-    if (error) {
-      console.error(`[SupabaseService] Error updating profile ID: ${id}:`, error);
-      throw error;
-    }
-    console.log(`[SupabaseService] Profile ID: ${id} updated successfully:`, data);
+    if (error) throw error;
     return mapUser(data);
   },
 
   async deleteProfile(id: string): Promise<void> {
-    console.log(`[SupabaseService] Deleting profile ID: ${id}`);
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from('profiles')
       .delete()
       .eq('id', id);
     
-    if (error) {
-      console.error(`[SupabaseService] Error deleting profile ID: ${id}:`, error);
-      throw error;
+    if (error) throw error;
+  },
+
+  async getAreas(): Promise<Area[]> {
+    try {
+      const { data, error } = await withTimeout(getSupabase()
+        .from('areas')
+        .select('*')
+        .order('name', { ascending: true }));
+      
+      if (error) {
+        if (error.message && error.message.includes('not found')) return [];
+        throw error;
+      }
+      const sortedAreas = (data || []).map(a => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        createdAt: a.created_at
+      })).sort((a, b) => {
+        if (a.name === 'General') return -1;
+        if (b.name === 'General') return 1;
+        return a.name.localeCompare(b.name);
+      });
+      
+      return sortedAreas;
+    } catch (err) {
+      console.error('[Supabase] Error fetching areas:', err);
+      if (err instanceof Error && err.message === 'TIMEOUT') return [];
+      throw err;
     }
-    console.log(`[SupabaseService] Profile ID: ${id} deleted successfully.`);
+  },
+
+  async createArea(area: any): Promise<Area> {
+    const { data, error } = await getSupabase()
+      .from('areas')
+      .insert([area])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return {
+      id: data.id,
+      name: data.name,
+      description: data.description,
+      createdAt: data.created_at
+    };
+  },
+
+  async updateArea(id: string, updates: any): Promise<Area> {
+    const { data, error } = await getSupabase()
+      .from('areas')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return {
+      id: data.id,
+      name: data.name,
+      description: data.description,
+      createdAt: data.created_at
+    };
+  },
+
+  async deleteArea(id: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from('areas')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
   }
 };

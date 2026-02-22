@@ -17,7 +17,7 @@ import { supabaseService } from '../services/supabase.ts';
 import { MOCK_DOCS } from '../constants';
 
 interface RepositoryViewProps {
-  filterArea?: DocArea;
+  filterArea?: string;
   showOnlyFavorites?: boolean;
   currentUser: User; // Add currentUser prop
 }
@@ -42,16 +42,12 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({ filterArea, showOnlyFav
           if (filterArea) {
             // Si hay un filterArea explícito, el USER solo ve documentos de ese área
             // PERO SOLO SI ese filterArea es GENERAL o su área asignada.
-            // Si intenta ver otra área, el filtro subsiguiente resultará en una lista vacía.
             data = data.filter(d => d.area === filterArea);
-             // Additionally, if the filterArea is not the user's area and not general,
-             // ensure no documents are shown.
              if (filterArea !== DocArea.GENERAL && filterArea !== currentUser.area) {
                  data = [];
              }
           } else {
-            // Si no hay filterArea explícito (ej. "Repositorio Central" o "Mis Favoritos"),
-            // el USER ve GENERAL y su área asignada.
+            // Si no hay filterArea explícito, el USER ve GENERAL y su área asignada.
             data = data.filter(d => d.area === DocArea.GENERAL || d.area === currentUser.area);
           }
         } else { // ADMIN or EDITOR roles

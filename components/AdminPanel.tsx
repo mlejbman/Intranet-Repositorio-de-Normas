@@ -1,34 +1,38 @@
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, Eye, Edit3, Trash2, FileText, 
+import { Plus, Eye, Edit3, Trash2, FileText, 
   CheckCircle2, Loader2, Info, Download, Mail, 
   UserPlus, UserCheck, UserCircle,
-  ShieldCheck
+  ShieldCheck, MapPin, Briefcase
 } from 'lucide-react';
-import { Document, User, UserRole, DocArea } from '../types';
+import { Document, User, UserRole, DocArea, Area } from '../types';
 import { supabaseService } from '../services/supabase.ts';
-import { MOCK_DOCS, MOCK_USERS, DEMO_DOCS_KEY, DEMO_USERS_KEY } from '../constants';
+import { MOCK_DOCS, MOCK_USERS, MOCK_AREAS, DEMO_DOCS_KEY, DEMO_USERS_KEY, DEMO_AREAS_KEY } from '../constants';
 
 interface AdminPanelProps {
   role: UserRole;
-  activeTab: 'docs' | 'users';
+  activeTab: 'docs' | 'users' | 'areas';
+  onAreasChange?: (areas: Area[]) => void;
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab, onAreasChange }) => {
   const [docs, setDocs] = useState<Document[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
   
   const [viewingDoc, setViewingDoc] = useState<Document | null>(null);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
+  const [viewingArea, setViewingArea] = useState<Area | null>(null);
   
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -42,6 +46,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
   const [showDocDeleteConfirmModal, setShowDocDeleteConfirmModal] = useState(false);
   const [docToDelete, setDocToDelete] = useState<Document | null>(null);
   const [docConfirmMessage, setDocConfirmMessage] = useState('');
+
+  // Estados para el modal de confirmación de eliminación de área
+  const [showAreaDeleteConfirmModal, setShowAreaDeleteConfirmModal] = useState(false);
+  const [areaToDelete, setAreaToDelete] = useState<Area | null>(null);
+  const [areaConfirmMessage, setAreaConfirmMessage] = useState('');
 
 
   const [formData, setFormData] = useState({
@@ -61,10 +70,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
     area: DocArea.GENERAL
   });
 
+  const [areaFormData, setAreaFormData] = useState({
+    name: '',
+    description: ''
+  });
+
   const canManageUsers = role === UserRole.ADMIN;
   const canEditDocs = role === UserRole.ADMIN || role === UserRole.EDITOR;
   
-  const [currentTab, setCurrentTab] = useState<'docs' | 'users'>(canManageUsers ? initialTab : 'docs');
+  const [currentTab, setCurrentTab] = useState<'docs' | 'users' | 'areas'>(canManageUsers ? initialTab : 'docs');
 
   // Sincronizar el tab actual si cambia la prop inicialTab (desde el Sidebar)
   useEffect(() => {
@@ -82,15 +96,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
     try {
       const docsData = await supabaseService.getDocuments();
       const usersData = canManageUsers ? await supabaseService.getUsers() : [];
+      const areasData = await supabaseService.getAreas();
       
       const hasRealDocs = docsData && docsData.length > 0;
       const hasRealUsers = usersData && usersData.length > 0;
+      const hasRealAreas = areasData && areasData.length > 0;
       
       currentIsDemoMode = !hasRealDocs || (canManageUsers && !hasRealUsers);
 
       if (currentIsDemoMode) {
         const storedDemoDocs = localStorage.getItem(DEMO_DOCS_KEY);
         const storedDemoUsers = localStorage.getItem(DEMO_USERS_KEY);
+        const storedDemoAreas = localStorage.getItem(DEMO_AREAS_KEY);
 
         if (storedDemoDocs) {
           setDocs(JSON.parse(storedDemoDocs));
@@ -105,17 +122,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
             setUsers(MOCK_USERS);
           }
         }
+
+        if (storedDemoAreas) {
+          setAreas(JSON.parse(storedDemoAreas));
+        } else {
+          setAreas(MOCK_AREAS);
+        }
       } else {
         setDocs(docsData);
-        if (canManageUsers) setUsers(usersData);
+        if (canManageUsers) {
+          setUsers(usersData);
+        }
+        setAreas(areasData);
         localStorage.removeItem(DEMO_DOCS_KEY);
         localStorage.removeItem(DEMO_USERS_KEY);
+        localStorage.removeItem(DEMO_AREAS_KEY);
       }
 
     } catch (error) {
       currentIsDemoMode = true;
       const storedDemoDocs = localStorage.getItem(DEMO_DOCS_KEY);
       const storedDemoUsers = localStorage.getItem(DEMO_USERS_KEY);
+      const storedDemoAreas = localStorage.getItem(DEMO_AREAS_KEY);
 
       if (storedDemoDocs) {
         setDocs(JSON.parse(storedDemoDocs));
@@ -128,6 +156,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
           setUsers(JSON.parse(storedDemoUsers));
         } else {
           setUsers(MOCK_USERS);
+        }
+
+        if (storedDemoAreas) {
+          setAreas(JSON.parse(storedDemoAreas));
+        } else {
+          setAreas(MOCK_AREAS);
         }
       }
     } finally {
@@ -155,6 +189,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
       localStorage.removeItem(DEMO_USERS_KEY);
     }
   }, [users, isDemoMode]);
+
+  useEffect(() => {
+    if (isDemoMode) {
+      localStorage.setItem(DEMO_AREAS_KEY, JSON.stringify(areas));
+    } else {
+      localStorage.removeItem(DEMO_AREAS_KEY);
+    }
+    onAreasChange?.(areas);
+  }, [areas, isDemoMode, onAreasChange]);
 
 
   const handleOpenCreateDoc = () => {
@@ -343,6 +386,74 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
     }
   };
 
+  const handleOpenEditArea = (area: Area) => {
+    setEditingAreaId(area.id);
+    setAreaFormData({
+      name: area.name,
+      description: area.description || ''
+    });
+    setIsAreaModalOpen(true);
+  };
+
+  const handleDeleteArea = async (area: Area) => {
+    setAreaToDelete(area);
+    setAreaConfirmMessage(`¿Está seguro de que desea eliminar el área "${area.name}"? Esta acción no afectará a los documentos ya publicados bajo esta área, pero ya no estará disponible para nuevas publicaciones.`);
+    setShowAreaDeleteConfirmModal(true);
+  };
+
+  const handleConfirmDeleteArea = async () => {
+    if (!areaToDelete) return;
+    
+    setAreas(currentAreas => {
+      return currentAreas.filter(a => a.id !== areaToDelete.id);
+    });
+
+    if (!isDemoMode) {
+      try {
+        await supabaseService.deleteArea(areaToDelete.id);
+      } catch (err: any) {
+        console.error("[DeleteArea Error]:", err);
+        alert(`Error en la comunicación con el servidor.`);
+      }
+    }
+    
+    setShowAreaDeleteConfirmModal(false);
+    setAreaToDelete(null);
+  };
+
+  const handleAreaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const payload = { ...areaFormData };
+      
+      if (!isDemoMode) {
+        if (editingAreaId && isRealUUID(editingAreaId)) {
+          await supabaseService.updateArea(editingAreaId, payload);
+        } else if (!editingAreaId) {
+          await supabaseService.createArea(payload);
+        }
+        await fetchData();
+      } else {
+        if (editingAreaId) {
+          setAreas(prev => prev.map(a => a.id === editingAreaId ? { ...a, ...payload } : a));
+        } else {
+          setAreas(prev => [{ ...payload, id: `demo-${Date.now()}`, createdAt: new Date().toISOString() } as any, ...prev]);
+        }
+      }
+      setSuccessMsg("Área actualizada.");
+      setTimeout(() => {
+        setIsAreaModalOpen(false);
+        setSuccessMsg(null);
+      }, 1000);
+    } catch (err: any) {
+      console.error("[AreaSubmit Error]:", err);
+      alert(`Error en la gestión de áreas.`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDownload = (doc: Document) => {
     const url = doc.fileUrl || (doc as any).file_url;
     if (url) window.open(url, '_blank');
@@ -385,6 +496,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
               <UserPlus size={14} /> Alta Usuario
             </button>
           )}
+          {activeTabName === 'areas' && canManageUsers && (
+            <button onClick={() => { setEditingAreaId(null); setAreaFormData({ name: '', description: '' }); setIsAreaModalOpen(true); }} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-3 rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-emerald-700 transition-all shadow-lg active:scale-95">
+              <Plus size={14} /> Nueva Área
+            </button>
+          )}
         </div>
       </header>
 
@@ -402,6 +518,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
             className={`px-6 py-4 text-[9px] font-black uppercase tracking-widest border-b-4 transition-all ${currentTab === 'users' ? 'border-[#003366] text-[#003366]' : 'border-transparent text-gray-400'}`}
           >
             Colaboradores
+          </button>
+          <button 
+            onClick={() => setCurrentTab('areas')} 
+            className={`px-6 py-4 text-[9px] font-black uppercase tracking-widest border-b-4 transition-all ${currentTab === 'areas' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400'}`}
+          >
+            Áreas
           </button>
         </div>
       )}
@@ -444,7 +566,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
                     </div>
                   </td>
                 </tr>
-              )) : users.map(user => (
+              )) : activeTabName === 'users' ? users.map(user => (
                 <tr key={user.id} className="hover:bg-gray-50 transition-all group">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
@@ -469,17 +591,64 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
                     </div>
                   </td>
                 </tr>
+              )) : areas.map(area => (
+                <tr key={area.id} className="hover:bg-emerald-50/10 transition-all group">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                        <MapPin size={18} />
+                      </div>
+                      <div>
+                        <p className="font-black text-gray-900 text-sm leading-tight">{area.name}</p>
+                        <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">ID: {area.id.slice(0, 8)}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5"><span className="text-[9px] font-medium text-gray-500 italic">{area.description || 'Sin descripción'}</span></td>
+                  <td className="px-8 py-5 text-center">
+                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[8px] font-black uppercase border border-emerald-100">Activa</span>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setViewingArea(area)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Ver"><Eye size={18} /></button>
+                      <button onClick={() => handleOpenEditArea(area)} className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all" title="Editar"><Edit3 size={18} /></button>
+                      <button onClick={() => handleDeleteArea(area)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Eliminar"><Trash2 size={18} /></button>
+                    </div>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {(activeTabName === 'docs' ? docs : users).length === 0 && (
+        {(activeTabName === 'docs' ? docs : activeTabName === 'users' ? users : areas).length === 0 && (
           <div className="p-20 text-center text-gray-400">
             <Info size={40} className="mx-auto mb-3 opacity-20" />
             <p className="font-bold uppercase text-[10px] tracking-widest">No hay registros vigentes en esta sección.</p>
           </div>
         )}
       </div>
+
+      {/* MODAL: VISUALIZAR AREA */}
+      {viewingArea && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-sm rounded-[40px] shadow-2xl overflow-hidden">
+             <div className="p-10 bg-emerald-600 text-white text-center relative">
+               <button onClick={() => setViewingArea(null)} className="absolute top-6 right-6 transition-transform"><X size={24} /></button>
+               <div className="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/20">
+                 <MapPin size={48} className="text-emerald-100" />
+               </div>
+               <h2 className="text-xl font-black">{viewingArea.name}</h2>
+               <p className="text-emerald-100 text-[10px] uppercase tracking-widest font-bold mt-1">Área Corporativa</p>
+             </div>
+             <div className="p-8 text-center space-y-6">
+               <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 italic text-sm text-gray-600">
+                 {viewingArea.description || "Sin descripción detallada."}
+               </div>
+               <button onClick={() => setViewingArea(null)} className="w-full py-4 bg-gray-900 text-white font-black uppercase text-[9px] rounded-2xl">Cerrar</button>
+             </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: VISUALIZAR DOC */}
       {viewingDoc && (
@@ -547,12 +716,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
       )}
 
       {/* MODALES DE EDICIÓN/ALTA */}
-      {(isModalOpen || isUserModalOpen) && (
+      {(isModalOpen || isUserModalOpen || isAreaModalOpen) && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
            <div className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden">
-              <div className={`p-6 text-white flex items-center justify-between ${isModalOpen ? 'bg-[#D92121]' : 'bg-[#003366]'}`}>
-                <h2 className="text-[10px] font-black uppercase tracking-widest">{isModalOpen ? 'Gestión de Norma' : 'Gestión de Identidad'}</h2>
-                <button onClick={() => { setIsModalOpen(false); setIsUserModalOpen(false); }}><X size={20} /></button>
+              <div className={`p-6 text-white flex items-center justify-between ${isModalOpen ? 'bg-[#D92121]' : isUserModalOpen ? 'bg-[#003366]' : 'bg-emerald-600'}`}>
+                <h2 className="text-[10px] font-black uppercase tracking-widest">
+                  {isModalOpen ? 'Gestión de Norma' : isUserModalOpen ? 'Gestión de Identidad' : 'Gestión de Área'}
+                </h2>
+                <button onClick={() => { setIsModalOpen(false); setIsUserModalOpen(false); setIsAreaModalOpen(false); }}><X size={20} /></button>
               </div>
               <div className="p-8">
                 {successMsg ? (
@@ -561,7 +732,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
                     <p className="font-black text-gray-900 tracking-tight">{successMsg}</p>
                   </div>
                 ) : (
-                  <form onSubmit={isModalOpen ? handleDocSubmit : handleUserSubmit} className="space-y-4">
+                  <form onSubmit={isModalOpen ? handleDocSubmit : isUserModalOpen ? handleUserSubmit : handleAreaSubmit} className="space-y-4">
                     {isModalOpen ? (
                       <>
                         <div className="space-y-1">
@@ -581,7 +752,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
                         <div className="space-y-1">
                           <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-1">Área Emisora</label>
                           <select className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold" value={formData.area} onChange={e => setFormData({...formData, area: e.target.value as DocArea})}>
-                            {Object.values(DocArea).map(a => <option key={a} value={a}>{a}</option>)}
+                            {areas.length > 0 ? areas.map(a => <option key={a.id} value={a.name}>{a.name}</option>) : Object.values(DocArea).map(a => <option key={a} value={a}>{a}</option>)}
                           </select>
                         </div>
                         <div className="space-y-1">
@@ -600,7 +771,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
                           />
                         </div>
                       </>
-                    ) : (
+                    ) : isUserModalOpen ? (
                       <>
                         <div className="space-y-1">
                           <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-1">Nombre</label>
@@ -620,9 +791,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
                           <div className="space-y-1">
                             <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-1">Sede</label>
                             <select className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold" value={userFormData.area} onChange={e => setUserFormData({...userFormData, area: e.target.value as DocArea})}>
-                              {Object.values(DocArea).map(a => <option key={a} value={a}>{a}</option>)}
+                              {areas.length > 0 ? areas.map(a => <option key={a.id} value={a.name}>{a.name}</option>) : Object.values(DocArea).map(a => <option key={a} value={a}>{a}</option>)}
                             </select>
                           </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-1">Nombre del Área</label>
+                          <input required className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold" value={areaFormData.name} onChange={e => setAreaFormData({...areaFormData, name: e.target.value})} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-1">Descripción / Alcance</label>
+                          <textarea rows={4} className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-medium outline-none resize-none" value={areaFormData.description} onChange={e => setAreaFormData({...areaFormData, description: e.target.value})} />
                         </div>
                       </>
                     )}
@@ -701,6 +883,43 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab }) 
                 <button 
                   onClick={handleConfirmDeleteDoc} 
                   className="flex-1 py-4 bg-[#D92121] text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-red-100 hover:bg-red-700 transition-all active:scale-95"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRMATION MODAL for Area Deletion */}
+      {showAreaDeleteConfirmModal && areaToDelete && (
+        <div 
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-area-delete-title"
+          aria-describedby="confirm-area-delete-message"
+        >
+          <div className="bg-white w-full max-w-sm rounded-[40px] shadow-2xl overflow-hidden">
+            <div className="p-6 bg-emerald-600 text-white flex items-center justify-between">
+              <h2 id="confirm-area-delete-title" className="text-[10px] font-black uppercase tracking-widest">Confirmar Eliminación de Área</h2>
+              <button onClick={() => setShowAreaDeleteConfirmModal(false)} className="hover:rotate-90 transition-transform" aria-label="Cerrar"><X size={20} /></button>
+            </div>
+            <div className="p-8 text-center space-y-6">
+              <p id="confirm-area-delete-message" className="text-gray-700 text-sm font-medium leading-relaxed">
+                {areaConfirmMessage}
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowAreaDeleteConfirmModal(false)} 
+                  className="flex-1 py-4 bg-gray-100 text-gray-600 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-gray-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleConfirmDeleteArea} 
+                  className="flex-1 py-4 bg-emerald-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95"
                 >
                   Eliminar
                 </button>

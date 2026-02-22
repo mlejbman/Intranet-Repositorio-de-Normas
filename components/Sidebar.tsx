@@ -12,9 +12,10 @@ import {
   ShieldCheck,
   Cpu,
   Calculator,
-  Star
+  Star,
+  MapPin
 } from 'lucide-react';
-import { UserRole, DocArea } from '../types';
+import { UserRole, DocArea, Area, User } from '../types';
 
 interface SidebarProps {
   currentRole: UserRole;
@@ -23,9 +24,10 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onLogout: () => void;
+  areas?: Area[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentRole, onNavigate, activeView, isOpen, onClose, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentRole, onNavigate, activeView, isOpen, onClose, onLogout, areas = [] }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard, roles: [UserRole.USER, UserRole.EDITOR, UserRole.ADMIN] },
     { id: 'repository', label: 'Repositorio Central', icon: BookOpen, roles: [UserRole.USER, UserRole.EDITOR, UserRole.ADMIN] },
@@ -35,6 +37,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentRole, onNavigate, activeView, 
   const adminItems = [
     { id: 'admin-docs', label: 'Gestión de Normas', icon: Settings, roles: [UserRole.EDITOR, UserRole.ADMIN] },
     { id: 'admin-users', label: 'Usuarios y Permisos', icon: Users, roles: [UserRole.ADMIN] },
+    { id: 'admin-areas', label: 'Gestión de Áreas', icon: MapPin, roles: [UserRole.ADMIN] },
+    { id: 'admin-metrics', label: 'Métricas y Reportes', icon: FileText, roles: [UserRole.EDITOR, UserRole.ADMIN] },
   ];
 
   const areaIcons: Record<string, any> = {
@@ -119,15 +123,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentRole, onNavigate, activeView, 
             <div>
               <p className="px-3 text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-3">Normativa por Área</p>
               <div className="space-y-1">
-                {Object.values(DocArea).map(area => {
-                  const Icon = areaIcons[area] || FileText;
+                {(areas.length > 0 ? areas.map(a => a.name) : Object.values(DocArea)).map(area => {
+                  const Icon = areaIcons[area as DocArea] || FileText;
                   return (
                     <button
                       key={area}
                       onClick={() => { onNavigate(`area-${area}`); onClose(); }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-blue-100 hover:bg-blue-800/40 rounded-xl transition-all group"
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all group ${
+                        activeView === `area-${area}`
+                        ? 'bg-blue-800/60 text-white border border-blue-700/50'
+                        : 'text-blue-100 hover:bg-blue-800/40'
+                      }`}
                     >
-                      <Icon size={16} className="text-blue-400 group-hover:text-white transition-colors" />
+                      <Icon size={16} className={activeView === `area-${area}` ? 'text-white' : 'text-blue-400 group-hover:text-white transition-colors'} />
                       <span className="text-xs font-medium truncate">{area}</span>
                     </button>
                   );

@@ -2,8 +2,19 @@
 -- LIMPIEZA DE DATOS EXISTENTES
 TRUNCATE TABLE documents CASCADE;
 TRUNCATE TABLE profiles CASCADE;
+TRUNCATE TABLE areas CASCADE;
 
--- 1. INSERCIÓN DE PERFILES CORPORATIVOS
+-- 1. INSERCIÓN DE ÁREAS
+INSERT INTO areas (name, description)
+VALUES 
+('General', 'Normativas aplicables a toda la compañía'),
+('Administración y Finanzas', 'Procesos contables, financieros y de tesorería'),
+('Comercial', 'Ventas, marketing y atención al cliente'),
+('Operaciones', 'Logística, sucursales y mantenimiento'),
+('Capital Humano', 'Recursos humanos, cultura y formación'),
+('Sistemas', 'Tecnología, ciberseguridad y soporte');
+
+-- 2. INSERCIÓN DE PERFILES CORPORATIVOS
 INSERT INTO profiles (id, name, email, role, area)
 VALUES 
 ('a1b2c3d4-e5f6-4a1b-8c2d-1234567890ab', 'María L. (Admin)', 'mlejbman@gmail.com', 'ADMIN', 'General'),

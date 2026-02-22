@@ -20,7 +20,7 @@ export interface Document {
   code: string;
   version: string;
   updatedAt: string;
-  area: DocArea;
+  area: string; // Soporta DocArea o áreas dinámicas
   tags: string[];
   description: string;
   content?: string;
@@ -34,6 +34,13 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  area: DocArea;
+  area: string; // Soporta DocArea o áreas dinámicas
+  createdAt?: string;
+}
+
+export interface Area {
+  id: string;
+  name: string;
+  description?: string;
   createdAt?: string;
 }
