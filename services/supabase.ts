@@ -2,23 +2,35 @@
 import { createClient } from '@supabase/supabase-js';
 import { Document, UserRole, DocArea, User, Area } from '../types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://erisopvgumqjknhkjkbw.supabase.co'; 
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyaXNvcHZndW1xamtuaGtqa2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1MzQ3MjYsImV4cCI6MjA4NjExMDcyNn0._YalZtQL15DV9501o9P1i5tBu-j0Fpm9AA5abshpVCg';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Fallback values for development/demo if environment variables are missing
+const DEFAULT_URL = 'https://erisopvgumqjknhkjkbw.supabase.co';
+const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyaXNvcHZndW1xamtuaGtqa2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1MzQ3MjYsImV4cCI6MjA4NjExMDcyNn0._YalZtQL15DV9501o9P1i5tBu-j0Fpm9AA5abshpVCg';
+
+const finalUrl = supabaseUrl || DEFAULT_URL;
+const finalKey = supabaseAnonKey || DEFAULT_KEY;
 
 const isConfigured = () => {
-  const isPlaceholder = supabaseAnonKey.startsWith('your_');
-  return !!supabaseUrl && !!supabaseAnonKey && !isPlaceholder;
+  return !!finalUrl && !!finalKey && !finalKey.startsWith('your_');
 };
 
 let _supabase: any = null;
 const getSupabase = () => {
   if (!_supabase) {
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('[Supabase] Missing URL or Anon Key');
+    if (!finalUrl || !finalKey) {
+      console.error('[Supabase] Missing URL or Anon Key. Please check your environment variables.');
       throw new Error('SUPABASE_NOT_CONFIGURED');
     }
     try {
-      _supabase = createClient(supabaseUrl, supabaseAnonKey);
+      console.log(`[Supabase] Initializing client with URL: ${finalUrl}`);
+      _supabase = createClient(finalUrl, finalKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+        }
+      });
     } catch (err) {
       console.error('[Supabase] Initialization error:', err);
       throw err;
@@ -28,7 +40,7 @@ const getSupabase = () => {
 };
 
 // Helper to wrap promises with a timeout
-async function withTimeout(promise: any, timeoutMs: number = 5000): Promise<any> {
+async function withTimeout(promise: any, timeoutMs: number = 10000): Promise<any> {
   const timeoutPromise = new Promise<never>((_, reject) => 
     setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)
   );
@@ -60,20 +72,21 @@ const mapUser = (dbUser: any): User => ({
 });
 
 export const supabaseService = {
-  async testConnection(): Promise<boolean> {
-    if (!isConfigured()) return false;
+  async testConnection(): Promise<{ success: boolean; error?: string }> {
+    if (!isConfigured()) return { success: false, error: 'SUPABASE_NOT_CONFIGURED' };
     try {
       const { error } = await withTimeout(getSupabase().from('profiles').select('id').limit(1));
       if (error) {
+        console.error('[Supabase] Query error during connection test:', error);
         if (error.message.includes('schema cache') || error.message.includes('not found')) {
-          throw new Error('TABLES_MISSING');
+          return { success: false, error: 'TABLES_MISSING' };
         }
-        throw error;
+        return { success: false, error: error.message };
       }
-      return true;
-    } catch (err) {
+      return { success: true };
+    } catch (err: any) {
       console.error('[Supabase] Connection test failed:', err);
-      return false;
+      return { success: false, error: err.message || 'CONNECTION_FAILED' };
     }
   },
 

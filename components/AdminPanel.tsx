@@ -57,7 +57,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab, on
     title: '',
     code: '',
     version: '1.0',
-    area: DocArea.GENERAL,
+    areas: [DocArea.GENERAL] as string[],
     description: '',
     file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', // Valor por defecto
     status: 'published' as 'published' | 'draft' | 'archived'
@@ -206,7 +206,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab, on
       title: '',
       code: '',
       version: '1.0',
-      area: DocArea.GENERAL,
+      areas: [DocArea.GENERAL],
       description: '',
       file_url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
       status: 'published'
@@ -554,7 +554,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab, on
                       </div>
                     </div>
                   </td>
-                  <td className="px-8 py-5"><span className="text-[9px] font-black text-gray-500 uppercase">{doc.area}</span></td>
+                  <td className="px-8 py-5">
+                    <span className="text-[9px] font-black text-gray-500 uppercase">
+                      {doc.areas && doc.areas.length > 0 ? doc.areas.join(', ') : 'Sin Área'}
+                    </span>
+                  </td>
                   <td className="px-8 py-5 text-center">
                     <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-[8px] font-black uppercase border border-green-100">Vigente</span>
                   </td>
@@ -664,7 +668,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab, on
             <div className="p-8 space-y-6 text-gray-600">
                <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Área Emisora</p>
+                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Área Visualizadora</p>
                     <p className="font-bold text-gray-800">{viewingDoc.area}</p>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
@@ -750,10 +754,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ role, activeTab: initialTab, on
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-1">Área Emisora</label>
-                          <select className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold" value={formData.area} onChange={e => setFormData({...formData, area: e.target.value as DocArea})}>
-                            {areas.length > 0 ? areas.map(a => <option key={a.id} value={a.name}>{a.name}</option>) : Object.values(DocArea).map(a => <option key={a} value={a}>{a}</option>)}
-                          </select>
+                          <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-1">Área Visualizadora</label>
+                          <div className="grid grid-cols-2 gap-2 p-4 bg-gray-50 border border-gray-200 rounded-2xl max-h-40 overflow-y-auto">
+                            {(areas.length > 0 ? areas.map(a => a.name) : Object.values(DocArea)).map(areaName => (
+                              <label key={areaName} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors">
+                                <input 
+                                  type="checkbox" 
+                                  className="w-4 h-4 rounded border-gray-300 text-[#003366] focus:ring-[#003366]"
+                                  checked={formData.areas.includes(areaName)}
+                                  onChange={(e) => {
+                                    const newAreas = e.target.checked 
+                                      ? [...formData.areas, areaName]
+                                      : formData.areas.filter(a => a !== areaName);
+                                    setFormData({...formData, areas: newAreas});
+                                  }}
+                                />
+                                <span className="text-xs font-bold text-gray-700">{areaName}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <p className="text-[9px] text-gray-400 mt-1 ml-1 font-medium italic">Selecciona una o más áreas que podrán visualizar este documento.</p>
                         </div>
                         <div className="space-y-1">
                           <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest ml-1">Descripción</label>

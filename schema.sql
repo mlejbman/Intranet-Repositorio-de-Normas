@@ -39,7 +39,7 @@ CREATE TABLE documents (
   description TEXT,
   content TEXT,
   file_url TEXT, -- Columna para el enlace de descarga física
-  area TEXT NOT NULL,
+  areas TEXT[] DEFAULT '{}',
   tags TEXT[] DEFAULT '{}',
   status TEXT CHECK (status IN ('published', 'draft', 'archived')) DEFAULT 'published',
   created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,

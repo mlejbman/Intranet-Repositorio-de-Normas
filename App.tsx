@@ -28,12 +28,24 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const initApp = async () => {
     setIsInitializing(true);
+    setConnectionError(null);
     try {
-      const isConnected = await supabaseService.testConnection();
-      console.log("[App] Supabase connection status:", isConnected ? "Connected" : "Not Configured/Error");
+      const { success, error: connError } = await supabaseService.testConnection();
+      console.log("[App] Supabase connection status:", success ? "Connected" : "Not Configured/Error", connError || "");
+      
+      if (!success) {
+        if (connError === 'TABLES_MISSING') {
+          setConnectionError("Conexión exitosa, pero no se encontraron las tablas. Por favor, ejecute el script SQL en Supabase.");
+        } else if (connError === 'SUPABASE_NOT_CONFIGURED') {
+          setConnectionError("Supabase no está configurado. Usando entorno de demostración.");
+        } else {
+          setConnectionError(`Error de conexión: ${connError || "Verifique las credenciales en .env"}`);
+        }
+      }
 
       const [users, fetchedAreas] = await Promise.all([
         supabaseService.getUsers(),
@@ -139,7 +151,7 @@ const App: React.FC = () => {
                  <div>
                     <p className="text-[11px] font-black text-amber-100 uppercase tracking-widest mb-1">Entorno de Demostración</p>
                     <p className="text-[11px] text-amber-200/80 leading-snug">
-                      No se detectaron usuarios en Supabase. Usando perfiles de auditoría local.
+                      {connectionError || "No se detectaron usuarios en Supabase. Usando perfiles de auditoría local."}
                     </p>
                  </div>
                </div>

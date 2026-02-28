@@ -42,17 +42,17 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({ filterArea, showOnlyFav
           if (filterArea) {
             // Si hay un filterArea explícito, el USER solo ve documentos de ese área
             // PERO SOLO SI ese filterArea es GENERAL o su área asignada.
-            data = data.filter(d => d.area === filterArea);
+            data = data.filter(d => d.areas && d.areas.includes(filterArea));
              if (filterArea !== DocArea.GENERAL && filterArea !== currentUser.area) {
                  data = [];
              }
           } else {
             // Si no hay filterArea explícito, el USER ve GENERAL y su área asignada.
-            data = data.filter(d => d.area === DocArea.GENERAL || d.area === currentUser.area);
+            data = data.filter(d => d.areas && (d.areas.includes(DocArea.GENERAL) || d.areas.includes(currentUser.area)));
           }
         } else { // ADMIN or EDITOR roles
           if (filterArea) {
-            data = data.filter(d => d.area === filterArea);
+            data = data.filter(d => d.areas && d.areas.includes(filterArea));
           }
         }
         // --- FIN FILTRADO ---
@@ -67,18 +67,18 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({ filterArea, showOnlyFav
         // Apply fallback docs filtering if in demo mode or error
         if (currentUser.role === UserRole.USER) {
           if (filterArea) {
-            fallbackDocs = fallbackDocs.filter(d => d.area === filterArea);
+            fallbackDocs = fallbackDocs.filter(d => d.areas && d.areas.includes(filterArea));
             if (filterArea !== DocArea.GENERAL && filterArea !== currentUser.area) {
                 fallbackDocs = [];
             }
           } else {
             fallbackDocs = fallbackDocs.filter(d => 
-              d.area === DocArea.GENERAL || d.area === currentUser.area
+              d.areas && (d.areas.includes(DocArea.GENERAL) || d.areas.includes(currentUser.area))
             );
           }
         } else {
           if (filterArea) {
-            fallbackDocs = fallbackDocs.filter(d => d.area === filterArea);
+            fallbackDocs = fallbackDocs.filter(d => d.areas && d.areas.includes(filterArea));
           }
         }
         setDocs(fallbackDocs);
@@ -169,7 +169,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({ filterArea, showOnlyFav
                     </span>
                     {!filterArea && (
                       <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 rounded-lg text-[9px] font-black tracking-widest uppercase border border-amber-100">
-                        {doc.area}
+                        {doc.areas && doc.areas.length > 0 ? doc.areas.join(', ') : 'Sin Área'}
                       </span>
                     )}
                   </div>

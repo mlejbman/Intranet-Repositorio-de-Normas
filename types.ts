@@ -20,7 +20,7 @@ export interface Document {
   code: string;
   version: string;
   updatedAt: string;
-  area: string; // Soporta DocArea o áreas dinámicas
+  areas: string[]; // Soporta múltiples áreas
   tags: string[];
   description: string;
   content?: string;
